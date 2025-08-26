@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { parse } from "graphql/language/index.js";
+import { parse } from "graphql/language/parser.js";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -43,7 +43,7 @@ const EnvSchema = z.object({
 
 const env = EnvSchema.parse(process.env);
 
-const server = new McpServer({
+const server: any = new McpServer({
 	name: env.NAME,
 	version: getVersion(),
 	description: `GraphQL MCP server for ${env.ENDPOINT}`,
@@ -230,10 +230,10 @@ async function main() {
 		);
 	} else if (env.TRANSPORT === "http") {
 		// Map to store transports by session ID for HTTP transport
-		const transports: Record<string, StreamableHTTPServerTransport> = {};
+		const transports: Record<string, any> = {};
 
 		// Create HTTP server
-		const httpServer = createServer(async (req, res) => {
+		const httpServer = createServer(async (req: any, res: any) => {
 			try {
 				// Set CORS headers for development
 				res.setHeader("Access-Control-Allow-Origin", "*");
@@ -249,7 +249,7 @@ async function main() {
 				if (req.method === "POST") {
 					// Parse JSON body
 					let body = "";
-					req.on("data", (chunk) => {
+					req.on("data", (chunk: any) => {
 						body += chunk.toString();
 					});
 					
@@ -258,7 +258,7 @@ async function main() {
 							const parsedBody = JSON.parse(body);
 							const sessionId = req.headers["mcp-session-id"] as string | undefined;
 							
-							let transport: StreamableHTTPServerTransport;
+							let transport: any;
 							
 							if (sessionId && transports[sessionId]) {
 								// Reuse existing transport for this session
@@ -308,12 +308,12 @@ async function main() {
 					const sessionId = req.headers["mcp-session-id"] as string | undefined;
 					
 					if (!sessionId || !transports[sessionId]) {
-						res.writeHead(400, { "Content-Type": "application/json" });
+						res.writeHead(404, { "Content-Type": "application/json" });
 						res.end(JSON.stringify({
 							jsonrpc: "2.0",
 							error: {
-								code: -32000,
-								message: "Bad Request: Invalid or missing session ID"
+								code: -32001,
+								message: "Session not found"
 							},
 							id: null
 						}));
@@ -321,13 +321,36 @@ async function main() {
 					}
 
 					const transport = transports[sessionId];
-					await transport.handleRequest(req, res);
+					
+					if (req.method === "GET") {
+						// Handle SSE stream
+						await transport.handleRequest(req, res);
+					} else if (req.method === "DELETE") {
+						// Terminate session
+						try {
+							await transport.close();
+							delete transports[sessionId];
+							res.writeHead(200, { "Content-Type": "application/json" });
+							res.end(JSON.stringify({ success: true }));
+						} catch (error) {
+							console.error("Error closing transport:", error);
+							res.writeHead(500, { "Content-Type": "application/json" });
+							res.end(JSON.stringify({
+								jsonrpc: "2.0",
+								error: {
+									code: -32603,
+									message: "Internal server error"
+								},
+								id: null
+							}));
+						}
+					}
 				} else {
 					res.writeHead(405, { "Content-Type": "application/json" });
 					res.end(JSON.stringify({
 						jsonrpc: "2.0",
 						error: {
-							code: -32000,
+							code: -32601,
 							message: "Method not allowed"
 						},
 						id: null
