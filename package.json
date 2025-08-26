@@ -17,6 +17,7 @@
 		"@types/yargs": "17.0.33",
 		"biome": "^0.3.3",
 		"graphql-yoga": "^5.13.5",
+		"ts-node": "^10.9.2",
 		"typescript": "5.8.3"
 	},
 	"dependencies": {

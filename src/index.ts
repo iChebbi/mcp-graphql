@@ -2,7 +2,10 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { parse } from "graphql/language";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { parse } from "graphql/language/index.js";
+import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { checkDeprecatedArguments } from "./helpers/deprecation.js";
 import {
@@ -10,7 +13,7 @@ import {
 	introspectLocalSchema,
 	introspectSchemaFromUrl,
 } from "./helpers/introspection.js";
-import { getVersion } from "./helpers/package.js" with { type: "macro" };
+import { getVersion } from "./helpers/package.js";
 
 // Check for deprecated command line arguments
 checkDeprecatedArguments();
@@ -33,6 +36,9 @@ const EnvSchema = z.object({
 			}
 		}),
 	SCHEMA: z.string().optional(),
+	TRANSPORT: z.enum(["stdio", "http"]).default("stdio"),
+	HTTP_PORT: z.coerce.number().default(3000),
+	HTTP_HOST: z.string().default("localhost"),
 });
 
 const env = EnvSchema.parse(process.env);
@@ -215,12 +221,160 @@ server.tool(
 );
 
 async function main() {
-	const transport = new StdioServerTransport();
-	await server.connect(transport);
+	if (env.TRANSPORT === "stdio") {
+		const transport = new StdioServerTransport();
+		await server.connect(transport);
 
-	console.error(
-		`Started graphql mcp server ${env.NAME} for endpoint: ${env.ENDPOINT}`,
-	);
+		console.error(
+			`Started graphql mcp server ${env.NAME} for endpoint: ${env.ENDPOINT} (stdio transport)`,
+		);
+	} else if (env.TRANSPORT === "http") {
+		// Map to store transports by session ID for HTTP transport
+		const transports: Record<string, StreamableHTTPServerTransport> = {};
+
+		// Create HTTP server
+		const httpServer = createServer(async (req, res) => {
+			try {
+				// Set CORS headers for development
+				res.setHeader("Access-Control-Allow-Origin", "*");
+				res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+				res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Last-Event-ID");
+				
+				if (req.method === "OPTIONS") {
+					res.writeHead(200);
+					res.end();
+					return;
+				}
+
+				if (req.method === "POST") {
+					// Parse JSON body
+					let body = "";
+					req.on("data", (chunk) => {
+						body += chunk.toString();
+					});
+					
+					req.on("end", async () => {
+						try {
+							const parsedBody = JSON.parse(body);
+							const sessionId = req.headers["mcp-session-id"] as string | undefined;
+							
+							let transport: StreamableHTTPServerTransport;
+							
+							if (sessionId && transports[sessionId]) {
+								// Reuse existing transport for this session
+								transport = transports[sessionId];
+							} else {
+								// Create new transport for new session
+								transport = new StreamableHTTPServerTransport({
+									sessionIdGenerator: () => randomUUID(),
+									onsessioninitialized: (newSessionId: string) => {
+										console.error(`Session initialized with ID: ${newSessionId}`);
+										transports[newSessionId] = transport;
+									}
+								});
+
+								// Set up cleanup when transport closes
+								transport.onclose = () => {
+									const sid = transport.sessionId;
+									if (sid && transports[sid]) {
+										console.error(`Session ${sid} closed, cleaning up transport`);
+										delete transports[sid];
+									}
+								};
+
+								// Connect the server to the transport
+								await server.connect(transport);
+							}
+
+							// Handle the HTTP request
+							await transport.handleRequest(req, res, parsedBody);
+						} catch (error) {
+							console.error("Error handling POST request:", error);
+							if (!res.headersSent) {
+								res.writeHead(400, { "Content-Type": "application/json" });
+								res.end(JSON.stringify({
+									jsonrpc: "2.0",
+									error: {
+										code: -32700,
+										message: "Parse error"
+									},
+									id: null
+								}));
+							}
+						}
+					});
+				} else if (req.method === "GET" || req.method === "DELETE") {
+					// Handle SSE streams and session termination
+					const sessionId = req.headers["mcp-session-id"] as string | undefined;
+					
+					if (!sessionId || !transports[sessionId]) {
+						res.writeHead(400, { "Content-Type": "application/json" });
+						res.end(JSON.stringify({
+							jsonrpc: "2.0",
+							error: {
+								code: -32000,
+								message: "Bad Request: Invalid or missing session ID"
+							},
+							id: null
+						}));
+						return;
+					}
+
+					const transport = transports[sessionId];
+					await transport.handleRequest(req, res);
+				} else {
+					res.writeHead(405, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({
+						jsonrpc: "2.0",
+						error: {
+							code: -32000,
+							message: "Method not allowed"
+						},
+						id: null
+					}));
+				}
+			} catch (error) {
+				console.error("Error in HTTP server:", error);
+				if (!res.headersSent) {
+					res.writeHead(500, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({
+						jsonrpc: "2.0",
+						error: {
+							code: -32603,
+							message: "Internal server error"
+						},
+						id: null
+					}));
+				}
+			}
+		});
+
+		httpServer.listen(env.HTTP_PORT, env.HTTP_HOST, () => {
+			console.error(
+				`Started graphql mcp server ${env.NAME} for endpoint: ${env.ENDPOINT} (http transport on ${env.HTTP_HOST}:${env.HTTP_PORT})`,
+			);
+		});
+
+		// Graceful shutdown
+		process.on("SIGINT", async () => {
+			console.error("Shutting down HTTP server...");
+			
+			// Close all active transports
+			for (const sessionId in transports) {
+				try {
+					await transports[sessionId].close();
+					delete transports[sessionId];
+				} catch (error) {
+					console.error(`Error closing transport for session ${sessionId}:`, error);
+				}
+			}
+
+			httpServer.close(() => {
+				console.error("HTTP server shutdown complete");
+				process.exit(0);
+			});
+		});
+	}
 }
 
 main().catch((error) => {

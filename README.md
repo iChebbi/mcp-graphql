@@ -21,12 +21,18 @@ Run `mcp-graphql` with the correct endpoint, it will automatically try to intros
 | `ALLOW_MUTATIONS` | Enable mutation operations (disabled by default) | `false` |
 | `NAME` | Name of the MCP server | `mcp-graphql` |
 | `SCHEMA` | Path to a local GraphQL schema file or URL (optional) | - |
+| `TRANSPORT` | Transport mode: `stdio` or `http` | `stdio` |
+| `HTTP_PORT` | Port for HTTP transport (when `TRANSPORT=http`) | `3000` |
+| `HTTP_HOST` | Host for HTTP transport (when `TRANSPORT=http`) | `localhost` |
 
 ### Examples
 
 ```bash
-# Basic usage with a local GraphQL server
+# Basic usage with a local GraphQL server (stdio transport - default)
 ENDPOINT=http://localhost:3000/graphql npx mcp-graphql
+
+# Using HTTP transport (streamable HTTP as per MCP spec)
+TRANSPORT=http HTTP_PORT=3001 ENDPOINT=http://localhost:3000/graphql npx mcp-graphql
 
 # Using with custom headers
 ENDPOINT=https://api.example.com/graphql HEADERS='{"Authorization":"Bearer token123"}' npx mcp-graphql
@@ -40,6 +46,28 @@ ENDPOINT=http://localhost:3000/graphql SCHEMA=./schema.graphql npx mcp-graphql
 # Using a schema file hosted at a URL
 ENDPOINT=http://localhost:3000/graphql SCHEMA=https://example.com/schema.graphql npx mcp-graphql
 ```
+
+## Transport Modes
+
+The server supports two transport modes as defined by the Model Context Protocol specification:
+
+### Stdio Transport (Default)
+- Uses standard input/output for JSON-RPC communication
+- Suitable for command-line tools and development
+- Compatible with Claude Desktop and other MCP clients
+
+### Streamable HTTP Transport
+- Implements the [MCP Streamable HTTP specification](https://modelcontextprotocol.io/specification/draft/basic/transports#streamable-http)
+- Uses HTTP POST for requests and Server-Sent Events (SSE) for responses
+- Supports session management and resumability
+- Suitable for web applications and HTTP-based integrations
+
+To use HTTP transport:
+```bash
+TRANSPORT=http HTTP_PORT=3001 npx mcp-graphql
+```
+
+The HTTP transport will be available at `http://localhost:3001` (or your configured host/port).
 
 ## Resources
 
