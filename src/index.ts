@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { parse } from "graphql/language/parser.js";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { URL } from "node:url";
 import { z } from "zod";
 import { checkDeprecatedArguments } from "./helpers/deprecation.js";
 import {
@@ -235,6 +236,10 @@ async function main() {
 		// Create HTTP server
 		const httpServer = createServer(async (req: any, res: any) => {
 			try {
+				// Parse the URL to get the pathname
+				const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+				const pathname = url.pathname;
+
 				// Set CORS headers for development
 				res.setHeader("Access-Control-Allow-Origin", "*");
 				res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
@@ -243,6 +248,28 @@ async function main() {
 				if (req.method === "OPTIONS") {
 					res.writeHead(200);
 					res.end();
+					return;
+				}
+
+				// Health check endpoint at root
+				if (pathname === "/" && req.method === "GET") {
+					res.writeHead(200, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({
+						status: "healthy",
+						service: "mcp-graphql",
+						version: getVersion(),
+						timestamp: new Date().toISOString()
+					}));
+					return;
+				}
+
+				// Only handle MCP requests on /mcp path
+				if (pathname !== "/mcp") {
+					res.writeHead(404, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({
+						error: "Not found",
+						message: "MCP server is available at /mcp"
+					}));
 					return;
 				}
 
