@@ -11,8 +11,6 @@ This folder contains example GraphQL operations that demonstrate how to use the 
 ## Files
 
 - **GetUser.graphql** - Query with required ID parameter
-- **GetAllUsers.graphql** - Simple query with no parameters  
-- **CreateUser.graphql** - Mutation with input object parameter
 
 ## Notes
 

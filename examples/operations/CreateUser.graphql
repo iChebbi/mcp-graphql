@@ -1,8 +1,7 @@
-mutation CreateUser($input: CreateUserInput!) {
-  createUser(input: $input) {
-    id
-    name
-    email
-    createdAt
-  }
+query GetUser($id: ID!) {
+    user(id: $id) {
+        id
+        name
+        email
+    }
 }
