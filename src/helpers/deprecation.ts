@@ -9,6 +9,7 @@ export function checkDeprecatedArguments(): void {
 	const deprecatedArgs = [
 		"--endpoint",
 		"--headers",
+		"--auth-headers",
 		"--enable-mutations",
 		"--name",
 		"--schema",
