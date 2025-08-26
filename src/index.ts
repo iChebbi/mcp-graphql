@@ -14,6 +14,7 @@ import {
 	introspectLocalSchema,
 	introspectSchemaFromUrl,
 } from "./helpers/introspection.js";
+import { loadGraphQLOperations } from "./helpers/operations.js";
 import { getVersion } from "./helpers/package.js";
 
 // Check for deprecated command line arguments
@@ -30,6 +31,7 @@ const EnvSchema = z.object({
 		.string()
 		.optional(),
 	SCHEMA: z.string().optional(),
+	OPERATIONS_FOLDER: z.string().default("./operations"),
 	TRANSPORT: z.enum(["stdio", "http"]).default("stdio"),
 	HTTP_PORT: z.coerce.number().default(3000),
 	HTTP_HOST: z.string().default("localhost"),
@@ -214,7 +216,122 @@ server.tool(
 	},
 );
 
+// Load and register GraphQL operations from the operations folder
+async function registerOperationTools() {
+	try {
+		const operations = await loadGraphQLOperations(env.OPERATIONS_FOLDER);
+		
+		for (const operation of operations) {
+			server.tool(
+				operation.name,
+				operation.description,
+				operation.variables,
+				async (args: Record<string, any>) => {
+					try {
+						const parsedQuery = parse(operation.query);
+
+						// Check if the query is a mutation
+						const isMutation = parsedQuery.definitions.some(
+							(def) =>
+								def.kind === "OperationDefinition" && def.operation === "mutation",
+						);
+
+						if (isMutation && !env.ALLOW_MUTATIONS) {
+							return {
+								isError: true,
+								content: [
+									{
+										type: "text",
+										text: "Mutations are not allowed unless you enable them in the configuration. Please use a query operation instead.",
+									},
+								],
+							};
+						}
+					} catch (error) {
+						return {
+							isError: true,
+							content: [
+								{
+									type: "text",
+									text: `Invalid GraphQL operation: ${error}`,
+								},
+							],
+						};
+					}
+
+					try {
+						const response = await fetch(env.ENDPOINT, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								...(env.AUTH_HEADERS ? { Authorization: env.AUTH_HEADERS } : {}),
+							},
+							body: JSON.stringify({
+								query: operation.query,
+								variables: args,
+							}),
+						});
+
+						if (!response.ok) {
+							const responseText = await response.text();
+
+							return {
+								isError: true,
+								content: [
+									{
+										type: "text",
+										text: `GraphQL request failed: ${response.statusText}\n${responseText}`,
+									},
+								],
+							};
+						}
+
+						const data = await response.json();
+
+						if (data.errors && data.errors.length > 0) {
+							// Contains GraphQL errors
+							return {
+								isError: true,
+								content: [
+									{
+										type: "text",
+										text: `The GraphQL response has errors, please fix the operation: ${JSON.stringify(
+											data,
+											null,
+											2,
+										)}`,
+									},
+								],
+							};
+						}
+
+						return {
+							content: [
+								{
+									type: "text",
+									text: JSON.stringify(data, null, 2),
+								},
+							],
+						};
+					} catch (error) {
+						throw new Error(`Failed to execute GraphQL operation: ${error}`);
+					}
+				},
+			);
+		}
+		
+		if (operations.length > 0) {
+			console.error(`Registered ${operations.length} GraphQL operation(s) from ${env.OPERATIONS_FOLDER}`);
+		}
+	} catch (error) {
+		console.error(`Failed to load GraphQL operations from ${env.OPERATIONS_FOLDER}:`, error);
+	}
+}
+
 async function main() {
+	// Register operation tools before starting the server
+	await registerOperationTools();
+	
 	if (env.TRANSPORT === "stdio") {
 		const transport = new StdioServerTransport();
 		await server.connect(transport);
