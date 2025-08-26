@@ -26,16 +26,9 @@ const EnvSchema = z.object({
 		.enum(["true", "false"])
 		.transform((value) => value === "true")
 		.default("false"),
-	HEADERS: z
+	AUTH_HEADERS: z
 		.string()
-		.default("{}")
-		.transform((val) => {
-			try {
-				return JSON.parse(val);
-			} catch (e) {
-				throw new Error("HEADERS must be a valid JSON string");
-			}
-		}),
+		.optional(),
 	SCHEMA: z.string().optional(),
 	TRANSPORT: z.enum(["stdio", "http"]).default("stdio"),
 	HTTP_PORT: z.coerce.number().default(3000),
@@ -63,7 +56,7 @@ server.resource("graphql-schema", new URL(env.ENDPOINT).href, async (uri) => {
 				schema = await introspectLocalSchema(env.SCHEMA);
 			}
 		} else {
-			schema = await introspectEndpoint(env.ENDPOINT, env.HEADERS);
+			schema = await introspectEndpoint(env.ENDPOINT, env.AUTH_HEADERS ? { Authorization: env.AUTH_HEADERS } : undefined);
 		}
 
 		return {
@@ -96,7 +89,7 @@ server.tool(
 			if (env.SCHEMA) {
 				schema = await introspectLocalSchema(env.SCHEMA);
 			} else {
-				schema = await introspectEndpoint(env.ENDPOINT, env.HEADERS);
+				schema = await introspectEndpoint(env.ENDPOINT, env.AUTH_HEADERS ? { Authorization: env.AUTH_HEADERS } : undefined);
 			}
 
 			return {
@@ -166,7 +159,7 @@ server.tool(
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					...env.HEADERS,
+					...(env.AUTH_HEADERS ? { Authorization: env.AUTH_HEADERS } : {}),
 				},
 				body: JSON.stringify({
 					query,

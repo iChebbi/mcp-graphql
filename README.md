@@ -17,7 +17,7 @@ Run `mcp-graphql` with the correct endpoint, it will automatically try to intros
 | Environment Variable | Description | Default |
 |----------|-------------|---------|
 | `ENDPOINT` | GraphQL endpoint URL | `http://localhost:4000/graphql` |
-| `HEADERS` | JSON string containing headers for requests | `{}` |
+| `AUTH_HEADERS` | Authorization header value for requests (optional) | - |
 | `ALLOW_MUTATIONS` | Enable mutation operations (disabled by default) | `false` |
 | `NAME` | Name of the MCP server | `mcp-graphql` |
 | `SCHEMA` | Path to a local GraphQL schema file or URL (optional) | - |
@@ -34,8 +34,8 @@ ENDPOINT=http://localhost:3000/graphql npx mcp-graphql
 # Using HTTP transport (streamable HTTP as per MCP spec)
 TRANSPORT=http HTTP_PORT=3001 ENDPOINT=http://localhost:3000/graphql npx mcp-graphql
 
-# Using with custom headers
-ENDPOINT=https://api.example.com/graphql HEADERS='{"Authorization":"Bearer token123"}' npx mcp-graphql
+# Using with authorization header
+ENDPOINT=https://api.example.com/graphql AUTH_HEADERS="Bearer token123" npx mcp-graphql
 
 # Enable mutation operations
 ENDPOINT=http://localhost:3000/graphql ALLOW_MUTATIONS=true npx mcp-graphql
