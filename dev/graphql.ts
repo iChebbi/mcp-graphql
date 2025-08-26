@@ -1,6 +1,7 @@
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { createYoga } from "graphql-yoga";
 import fs from "node:fs";
+import { createServer } from "node:http";
 
 /**
  * Simple GraphQL server implementation for testing purposes
@@ -271,23 +272,12 @@ const schema = makeExecutableSchema({
 // Create Yoga instance
 const yoga = createYoga({ schema });
 
-// Start server with proper request handler
-const server = Bun.serve({
-	port: 4000,
-	fetch: (request) => {
-		// Add dev logger for incoming requests
-		console.log(
-			`[${new Date().toISOString()}] Incoming request: ${request.method} ${
-				request.url
-			}`,
-		);
-		return yoga.fetch(request);
-	},
-});
+// Start server with Node.js HTTP server
+const server = createServer(yoga);
+const port = 4000;
 
-console.info(
-	`GraphQL server is running on ${new URL(
-		yoga.graphqlEndpoint,
-		`http://${server.hostname}:${server.port}`,
-	)}`,
-);
+server.listen(port, () => {
+	console.info(
+		`GraphQL server is running on http://localhost:${port}${yoga.graphqlEndpoint}`,
+	);
+});
