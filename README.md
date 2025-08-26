@@ -67,7 +67,21 @@ To use HTTP transport:
 TRANSPORT=http HTTP_PORT=3001 npx mcp-graphql
 ```
 
-The HTTP transport will be available at `http://localhost:3001` (or your configured host/port).
+The HTTP server provides:
+- Health check endpoint at `/` - returns server status and version
+- MCP server endpoint at `/mcp` - handles all MCP protocol communication
+
+Example:
+```bash
+# Health check
+curl http://localhost:3001/
+
+# MCP communication (requires proper MCP headers)
+curl -X POST http://localhost:3001/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"ping","id":1}'
+```
 
 ## Resources
 
