@@ -32,7 +32,6 @@ const EnvSchema = z.object({
 		.optional(),
 	SCHEMA: z.string().optional(),
 	OPERATIONS_FOLDER: z.string().default("./operations"),
-	COMMENT_SEPARATOR: z.string().optional(),
 	TRANSPORT: z.enum(["stdio", "http"]).default("stdio"),
 	HTTP_PORT: z.coerce.number().default(3000),
 	HTTP_HOST: z.string().default("localhost"),
@@ -220,7 +219,7 @@ server.tool(
 // Load and register GraphQL operations from the operations folder
 async function registerOperationTools() {
 	try {
-		const operations = await loadGraphQLOperations(env.OPERATIONS_FOLDER, env.COMMENT_SEPARATOR);
+		const operations = await loadGraphQLOperations(env.OPERATIONS_FOLDER);
 		
 		for (const operation of operations) {
 			server.tool(

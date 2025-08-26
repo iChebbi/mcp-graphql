@@ -22,7 +22,6 @@ Run `mcp-graphql` with the correct endpoint, it will automatically try to intros
 | `NAME` | Name of the MCP server | `mcp-graphql` |
 | `SCHEMA` | Path to a local GraphQL schema file or URL (optional) | - |
 | `OPERATIONS_FOLDER` | Path to folder containing `.graphql` operation files (optional) | `./operations` |
-| `COMMENT_SEPARATOR` | Separator to define which comments to use for descriptions (optional) | - |
 | `TRANSPORT` | Transport mode: `stdio` or `http` | `stdio` |
 | `HTTP_PORT` | Port for HTTP transport (when `TRANSPORT=http`) | `3000` |
 | `HTTP_HOST` | Host for HTTP transport (when `TRANSPORT=http`) | `localhost` |
@@ -50,9 +49,6 @@ ENDPOINT=http://localhost:3000/graphql SCHEMA=https://example.com/schema.graphql
 
 # Using GraphQL operations from .graphql files in operations folder
 ENDPOINT=http://localhost:3000/graphql OPERATIONS_FOLDER=./my-operations npx mcp-graphql
-
-# Using comment separator to extract specific descriptions from GraphQL files
-ENDPOINT=http://localhost:3000/graphql OPERATIONS_FOLDER=./my-operations COMMENT_SEPARATOR="@description:" npx mcp-graphql
 ```
 
 ## GraphQL Operations
@@ -89,7 +85,7 @@ mutation CreateUser($input: CreateUserInput!) {
 
 Each operation becomes a tool with:
 - **Name**: The operation name (or filename if unnamed)
-- **Description**: Extracted from comments in the .graphql file (see [Comment-based Descriptions](#comment-based-descriptions)) or auto-generated based on operation type and name
+- **Description**: Extracted from comments following `@description:` decorator in the .graphql file (see [Comment-based Descriptions](#comment-based-descriptions)) or auto-generated based on operation type and name
 - **Parameters**: Automatically mapped from GraphQL variables with appropriate types:
   - `String`, `ID` → string
   - `Int`, `Float` → number
@@ -99,22 +95,8 @@ Each operation becomes a tool with:
 
 ### Comment-based Descriptions
 
-You can provide custom descriptions for your GraphQL operations using comments in the `.graphql` files:
+You can provide custom descriptions for your GraphQL operations using comments with the `@description:` decorator in the `.graphql` files:
 
-**Default behavior** - All leading comments are used as description:
-```graphql
-# Fetches user information by ID
-# Returns the user's basic profile including name and email address
-query GetUser($id: ID!) {
-    user(id: $id) {
-        id
-        name
-        email
-    }
-}
-```
-
-**Using a separator** - Use the `COMMENT_SEPARATOR` environment variable to specify which comments to use:
 ```graphql
 # This is just a general comment about the file
 # You can put any information here
@@ -129,13 +111,13 @@ mutation CreateUser($input: CreateUserInput!) {
 }
 ```
 
-Set `COMMENT_SEPARATOR=@description:` to extract only the comments following the separator.
+Only comments following the `@description:` line will be used as the tool description. If no `@description:` is found, the operation will use an auto-generated description based on the operation type and name.
 
 ### Features
 
 - ✅ Automatic type mapping from GraphQL to JSON Schema
 - ✅ Required/optional parameter detection
-- ✅ Comment-based operation descriptions with configurable separators
+- ✅ Comment-based operation descriptions using `@description:` decorator
 - ✅ Mutation protection (respects `ALLOW_MUTATIONS` setting)
 - ✅ Error handling for invalid operations
 - ✅ Support for complex input types and nested objects
