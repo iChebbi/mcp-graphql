@@ -1,0 +1,12 @@
+# This is just a general comment about the file
+# You can put any information here
+# @description: Creates a new user account in the system
+# This operation will validate the input and create a user record
+mutation CreateUser($input: CreateUserInput!) {
+    createUser(input: $input) {
+        id
+        name
+        email
+        createdAt
+    }
+}

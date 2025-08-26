@@ -11,11 +11,59 @@ export interface GraphQLOperation {
 }
 
 /**
+ * Extract description from comments in GraphQL file content
+ * @param content - The raw GraphQL file content
+ * @param separator - Optional separator to define which comments to use (default: use all leading comments)
+ * @returns Extracted description or null if no comments found
+ */
+function extractDescriptionFromComments(content: string, separator?: string): string | null {
+	const lines = content.split('\n');
+	const commentLines: string[] = [];
+	
+	// If separator is provided, look for comments after the separator
+	if (separator) {
+		let separatorFound = false;
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+			if (trimmedLine.includes(separator)) {
+				separatorFound = true;
+				continue;
+			}
+			if (separatorFound && trimmedLine.startsWith('#')) {
+				commentLines.push(trimmedLine.substring(1).trim());
+			} else if (separatorFound && trimmedLine !== '' && !trimmedLine.startsWith('#')) {
+				// Stop collecting comments when we hit non-comment, non-empty line
+				break;
+			}
+		}
+	} else {
+		// Extract all leading comments (comments at the beginning of the file)
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+			if (trimmedLine.startsWith('#')) {
+				commentLines.push(trimmedLine.substring(1).trim());
+			} else if (trimmedLine !== '') {
+				// Stop when we hit the first non-comment, non-empty line
+				break;
+			}
+		}
+	}
+	
+	if (commentLines.length === 0) {
+		return null;
+	}
+	
+	// Join comments with spaces, removing empty lines
+	return commentLines.filter(line => line.length > 0).join(' ');
+}
+
+/**
  * Load GraphQL operations from .graphql files in the specified folder
  * @param operationsFolder - The folder containing .graphql files
+ * @param commentSeparator - Optional separator to define which comments to use for descriptions
  * @returns Array of GraphQL operations with their schemas
  */
-export async function loadGraphQLOperations(operationsFolder: string): Promise<GraphQLOperation[]> {
+export async function loadGraphQLOperations(operationsFolder: string, commentSeparator?: string): Promise<GraphQLOperation[]> {
 	try {
 		const files = await readdir(operationsFolder);
 		const graphqlFiles = files.filter(file => extname(file) === ".graphql");
@@ -26,13 +74,16 @@ export async function loadGraphQLOperations(operationsFolder: string): Promise<G
 			const filePath = join(operationsFolder, file);
 			const content = await readFile(filePath, "utf-8");
 			
+			// Extract description from comments
+			const extractedDescription = extractDescriptionFromComments(content, commentSeparator);
+			
 			try {
 				const document = parse(content);
 				
 				// Extract operation definitions
 				for (const definition of document.definitions) {
 					if (definition.kind === "OperationDefinition") {
-						const operation = parseOperationDefinition(definition, basename(file, ".graphql"));
+						const operation = parseOperationDefinition(definition, basename(file, ".graphql"), extractedDescription);
 						if (operation) {
 							operation.query = content;
 							operations.push(operation);
@@ -55,14 +106,15 @@ export async function loadGraphQLOperations(operationsFolder: string): Promise<G
  * Parse a GraphQL operation definition to extract name, variables, and generate schema
  * @param definition - The GraphQL operation definition
  * @param fileName - The filename (used as fallback for operation name)
+ * @param extractedDescription - Description extracted from comments (optional)
  * @returns Parsed operation information
  */
-function parseOperationDefinition(definition: OperationDefinitionNode, fileName: string): GraphQLOperation | null {
+function parseOperationDefinition(definition: OperationDefinitionNode, fileName: string, extractedDescription?: string | null): GraphQLOperation | null {
 	const operationName = definition.name?.value || fileName;
 	const operationType = definition.operation;
 	
-	// Create description based on operation type and name
-	const description = `Execute ${operationType} operation: ${operationName}`;
+	// Use extracted description if available, otherwise fall back to generated description
+	const description = extractedDescription || `Execute ${operationType} operation: ${operationName}`;
 	
 	// Parse variables and create Zod schema
 	const variables: Record<string, z.ZodTypeAny> = {};
