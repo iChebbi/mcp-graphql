@@ -1,0 +1,15 @@
+query GetPostsWithFilters($authorId: String, $published: Boolean, $limit: Int) {
+  posts {
+    id
+    title
+    content
+    published
+    authorId
+    createdAt
+    author {
+      id
+      name
+      email
+    }
+  }
+}

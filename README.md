@@ -21,6 +21,7 @@ Run `mcp-graphql` with the correct endpoint, it will automatically try to intros
 | `ALLOW_MUTATIONS` | Enable mutation operations (disabled by default) | `false` |
 | `NAME` | Name of the MCP server | `mcp-graphql` |
 | `SCHEMA` | Path to a local GraphQL schema file or URL (optional) | - |
+| `OPERATIONS_FOLDER` | Path to folder containing `.graphql` operation files (optional) | `./operations` |
 | `TRANSPORT` | Transport mode: `stdio` or `http` | `stdio` |
 | `HTTP_PORT` | Port for HTTP transport (when `TRANSPORT=http`) | `3000` |
 | `HTTP_HOST` | Host for HTTP transport (when `TRANSPORT=http`) | `localhost` |
@@ -45,7 +46,60 @@ ENDPOINT=http://localhost:3000/graphql SCHEMA=./schema.graphql npx mcp-graphql
 
 # Using a schema file hosted at a URL
 ENDPOINT=http://localhost:3000/graphql SCHEMA=https://example.com/schema.graphql npx mcp-graphql
+
+# Using GraphQL operations from .graphql files in operations folder
+ENDPOINT=http://localhost:3000/graphql OPERATIONS_FOLDER=./my-operations npx mcp-graphql
 ```
+
+## GraphQL Operations
+
+You can define GraphQL operations in `.graphql` files within an operations folder (default: `./operations`). Each operation will be automatically converted into a separate MCP tool with the same name as the operation.
+
+### Operation Files
+
+Create `.graphql` files in your operations folder with GraphQL queries or mutations:
+
+**operations/GetUser.graphql:**
+```graphql
+query GetUser($id: ID!) {
+  user(id: $id) {
+    id
+    name
+    email
+  }
+}
+```
+
+**operations/CreateUser.graphql:**
+```graphql
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    name
+    email
+  }
+}
+```
+
+### Tool Generation
+
+Each operation becomes a tool with:
+- **Name**: The operation name (or filename if unnamed)
+- **Description**: Auto-generated based on operation type and name
+- **Parameters**: Automatically mapped from GraphQL variables with appropriate types:
+  - `String`, `ID` → string
+  - `Int`, `Float` → number
+  - `Boolean` → boolean
+  - Input types (e.g., `CreateUserInput`) → object
+  - Optional parameters for variables without `!` (non-null)
+
+### Features
+
+- ✅ Automatic type mapping from GraphQL to JSON Schema
+- ✅ Required/optional parameter detection
+- ✅ Mutation protection (respects `ALLOW_MUTATIONS` setting)
+- ✅ Error handling for invalid operations
+- ✅ Support for complex input types and nested objects
 
 ## Transport Modes
 
