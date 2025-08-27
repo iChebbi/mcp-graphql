@@ -1,6 +1,6 @@
 # Example GraphQL Operations
 
-This folder contains example GraphQL operations that demonstrate how to use the operations feature.
+This folder contains example GraphQL operations that demonstrate how to use the operations feature with `@description` decorator for custom descriptions.
 
 ## How to Use
 
@@ -10,7 +10,24 @@ This folder contains example GraphQL operations that demonstrate how to use the 
 
 ## Files
 
-- **GetUser.graphql** - Query with required ID parameter
+- **CreateUser.graphql** - Query with `@description` decorator demonstrating description extraction
+- **CreateUserMutation.graphql** - Mutation with `@description` decorator demonstrating description extraction
+
+## Comment-based Descriptions
+
+Use the `@description` decorator in your GraphQL files to provide custom tool descriptions:
+
+```graphql
+# General file comment
+# @description 
+# Creates a new user account in the system
+# This operation will validate the input and create a user record
+mutation CreateUser($input: CreateUserInput!) {
+    # ... operation
+}
+```
+
+Only comments following the `@description` line will be used as the tool description. If no `@description` decorator is found, the operation will use an auto-generated description.
 
 ## Notes
 
@@ -18,3 +35,4 @@ This folder contains example GraphQL operations that demonstrate how to use the 
 - Tool names match the GraphQL operation names
 - Parameters are automatically mapped from GraphQL variables
 - Mutations require `ALLOW_MUTATIONS=true` environment variable
+- Tool descriptions are extracted from comments following the `@description` decorator

@@ -11,6 +11,39 @@ export interface GraphQLOperation {
 }
 
 /**
+ * Extract description from comments in GraphQL file content using @description separator
+ * @param content - The raw GraphQL file content
+ * @returns Extracted description or null if no @description comments found
+ */
+function extractDescriptionFromComments(content: string): string | null {
+	const lines = content.split('\n');
+	const commentLines: string[] = [];
+	
+	// Look for comments after the @description separator
+	let separatorFound = false;
+	for (const line of lines) {
+		const trimmedLine = line.trim();
+		if (trimmedLine.includes('@description')) {
+			separatorFound = true;
+			continue;
+		}
+		if (separatorFound && trimmedLine.startsWith('#')) {
+			commentLines.push(trimmedLine.substring(1).trim());
+		} else if (separatorFound && trimmedLine !== '' && !trimmedLine.startsWith('#')) {
+			// Stop collecting comments when we hit non-comment, non-empty line
+			break;
+		}
+	}
+	
+	if (commentLines.length === 0) {
+		return null;
+	}
+	
+	// Join comments with spaces, removing empty lines
+	return commentLines.filter(line => line.length > 0).join(' ');
+}
+
+/**
  * Load GraphQL operations from .graphql files in the specified folder
  * @param operationsFolder - The folder containing .graphql files
  * @returns Array of GraphQL operations with their schemas
@@ -26,13 +59,16 @@ export async function loadGraphQLOperations(operationsFolder: string): Promise<G
 			const filePath = join(operationsFolder, file);
 			const content = await readFile(filePath, "utf-8");
 			
+			// Extract description from comments
+			const extractedDescription = extractDescriptionFromComments(content);
+			
 			try {
 				const document = parse(content);
 				
 				// Extract operation definitions
 				for (const definition of document.definitions) {
 					if (definition.kind === "OperationDefinition") {
-						const operation = parseOperationDefinition(definition, basename(file, ".graphql"));
+						const operation = parseOperationDefinition(definition, basename(file, ".graphql"), extractedDescription);
 						if (operation) {
 							operation.query = content;
 							operations.push(operation);
@@ -55,14 +91,15 @@ export async function loadGraphQLOperations(operationsFolder: string): Promise<G
  * Parse a GraphQL operation definition to extract name, variables, and generate schema
  * @param definition - The GraphQL operation definition
  * @param fileName - The filename (used as fallback for operation name)
+ * @param extractedDescription - Description extracted from comments (optional)
  * @returns Parsed operation information
  */
-function parseOperationDefinition(definition: OperationDefinitionNode, fileName: string): GraphQLOperation | null {
+function parseOperationDefinition(definition: OperationDefinitionNode, fileName: string, extractedDescription?: string | null): GraphQLOperation | null {
 	const operationName = definition.name?.value || fileName;
 	const operationType = definition.operation;
 	
-	// Create description based on operation type and name
-	const description = `Execute ${operationType} operation: ${operationName}`;
+	// Use extracted description if available, otherwise fall back to generated description
+	const description = extractedDescription || `Execute ${operationType} operation: ${operationName}`;
 	
 	// Parse variables and create Zod schema
 	const variables: Record<string, z.ZodTypeAny> = {};

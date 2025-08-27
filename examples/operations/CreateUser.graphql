@@ -1,3 +1,6 @@
+# General comments about the file
+# @description Fetches user information by ID
+# Returns the user's basic profile including name and email address
 query GetUser($id: ID!) {
     user(id: $id) {
         id
