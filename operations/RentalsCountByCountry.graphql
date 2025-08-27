@@ -1,0 +1,5 @@
+query rentalsCountInCountry($countryCode: String) {
+    rentals(deliveryCountry: $countryCode) {
+        totalCount
+    }
+}

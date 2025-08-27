@@ -179,6 +179,4 @@ dist/
 # GraphQL schema for debugging
 /schema.graphql
 
-# Example operations folder (use your own)
-/operations/
-/schema-simple.graphql
+/schema-simpgle.graphql
