@@ -11,7 +11,7 @@ export interface GraphQLOperation {
 }
 
 /**
- * Extract description from comments in GraphQL file content using @description: separator
+ * Extract description from comments in GraphQL file content using @description separator
  * @param content - The raw GraphQL file content
  * @returns Extracted description or null if no @description comments found
  */
@@ -19,11 +19,11 @@ function extractDescriptionFromComments(content: string): string | null {
 	const lines = content.split('\n');
 	const commentLines: string[] = [];
 	
-	// Look for comments after the @description: separator
+	// Look for comments after the @description separator
 	let separatorFound = false;
 	for (const line of lines) {
 		const trimmedLine = line.trim();
-		if (trimmedLine.includes('@description:')) {
+		if (trimmedLine.includes('@description')) {
 			separatorFound = true;
 			continue;
 		}

@@ -85,7 +85,7 @@ mutation CreateUser($input: CreateUserInput!) {
 
 Each operation becomes a tool with:
 - **Name**: The operation name (or filename if unnamed)
-- **Description**: Extracted from comments following `@description:` decorator in the .graphql file (see [Comment-based Descriptions](#comment-based-descriptions)) or auto-generated based on operation type and name
+- **Description**: Extracted from comments following `@description` decorator in the .graphql file (see [Comment-based Descriptions](#comment-based-descriptions)) or auto-generated based on operation type and name
 - **Parameters**: Automatically mapped from GraphQL variables with appropriate types:
   - `String`, `ID` → string
   - `Int`, `Float` → number
@@ -95,12 +95,12 @@ Each operation becomes a tool with:
 
 ### Comment-based Descriptions
 
-You can provide custom descriptions for your GraphQL operations using comments with the `@description:` decorator in the `.graphql` files:
+You can provide custom descriptions for your GraphQL operations using comments with the `@description` decorator in the `.graphql` files:
 
 ```graphql
 # This is just a general comment about the file
 # You can put any information here
-# @description: Creates a new user account in the system
+# @description
 # This operation will validate the input and create a user record
 mutation CreateUser($input: CreateUserInput!) {
     createUser(input: $input) {
@@ -111,13 +111,13 @@ mutation CreateUser($input: CreateUserInput!) {
 }
 ```
 
-Only comments following the `@description:` line will be used as the tool description. If no `@description:` is found, the operation will use an auto-generated description based on the operation type and name.
+Only comments following the `@description` line will be used as the tool description. If no `@description` is found, the operation will use an auto-generated description based on the operation type and name.
 
 ### Features
 
 - ✅ Automatic type mapping from GraphQL to JSON Schema
 - ✅ Required/optional parameter detection
-- ✅ Comment-based operation descriptions using `@description:` decorator
+- ✅ Comment-based operation descriptions using `@description` decorator
 - ✅ Mutation protection (respects `ALLOW_MUTATIONS` setting)
 - ✅ Error handling for invalid operations
 - ✅ Support for complex input types and nested objects
