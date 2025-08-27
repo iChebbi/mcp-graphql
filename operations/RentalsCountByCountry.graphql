@@ -1,5 +1,5 @@
-query rentalsCountInCountry($countryCode: String) {
-    rentals(deliveryCountry: $countryCode) {
+query rentalsCountInCountry($countryCode: String, $runningRentals: Boolean = false) {
+    rentals(deliveryCountry: $countryCode, runningRentals: $runningRentals) {
         totalCount
     }
 }
